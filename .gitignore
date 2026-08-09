@@ -1,0 +1,12 @@
+/target/
+/.cache/
+/.direnv/
+/.zed/
+/.zed-pack/
+/.vendor/
+/.env
+/.env.*
+!/examples/.env.example
+tmp/
+*.log
+.DS_Store
