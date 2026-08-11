@@ -6,8 +6,7 @@
 
 use crate::schema::{CanonicalSchema, SchemaError};
 
-const TUNNEL_PERSISTENCE_SCHEMA: &str =
-    include_str!("../schema/tunnel-persistence.schema.json");
+const TUNNEL_PERSISTENCE_SCHEMA: &str = include_str!("../schema/tunnel-persistence.schema.json");
 
 /// Parse the canonical File Tunnel persistence schema owned by `ftnl-lib-core`.
 pub fn tunnel_persistence_schema() -> Result<CanonicalSchema, SchemaError> {
@@ -34,13 +33,19 @@ mod tests {
             "eventTicket",
             "fileBytes",
         ] {
-            assert!(!properties.contains_key(prohibited), "{prohibited} must not be persisted");
+            assert!(
+                !properties.contains_key(prohibited),
+                "{prohibited} must not be persisted"
+            );
         }
 
         let sql = generate_create_table(&schema).as_script();
         assert!(sql.contains("CREATE TABLE IF NOT EXISTS \"file_tunnels\""));
         for destructive in ["DROP ", "TRUNCATE ", "DELETE ", "ALTER "] {
-            assert!(!sql.contains(destructive), "unexpected destructive SQL: {destructive}");
+            assert!(
+                !sql.contains(destructive),
+                "unexpected destructive SQL: {destructive}"
+            );
         }
     }
 }
