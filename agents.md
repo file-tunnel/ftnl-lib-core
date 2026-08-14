@@ -21,3 +21,5 @@ These instructions apply to this repository and every directory beneath it.
 - Keep changes focused and reviewable.
 - Pull and merge remote work before pushing; avoid git rebase in favor of git merge.
 - Never discard unrelated or uncommitted user work.
+
+avoid git rebase in favor of git merge.
