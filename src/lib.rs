@@ -5,12 +5,14 @@
 //! those effects and may opt into the bounded [`dpm`] process adapter.
 
 pub mod codegen;
+pub mod contracts;
 pub mod dpm;
 pub mod orm;
 pub mod schema;
 pub mod sql;
 
 pub use codegen::{generate_dart, generate_rust, generate_typescript, GeneratedCode};
+pub use contracts::tunnel_persistence_schema;
 pub use orm::{EntityRecord, InsertPlan, QueryPlan};
 pub use schema::{CanonicalSchema, Field, FieldKind, SchemaError};
 pub use sql::{generate_create_table, SqlPlan};
