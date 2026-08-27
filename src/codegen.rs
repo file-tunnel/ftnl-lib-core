@@ -8,70 +8,80 @@ pub struct GeneratedCode {
 
 pub fn generate_rust(schema: &CanonicalSchema) -> GeneratedCode {
     let name = pascal_case(&schema.title);
-    let mut source =
-        String::from("#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]\n");
-    source.push_str(&format!("pub struct {name} {{\n"));
-    for field in schema.fields.values() {
-        let identifier = rust_identifier(&field.json_name);
-        if identifier != field.json_name {
-            source.push_str(&format!("    #[serde(rename = {:?})]\n", field.json_name));
-        }
-        let ty = rust_type(&field.kind);
-        let ty = if field.required {
-            ty.to_owned()
-        } else {
-            format!("Option<{ty}>")
-        };
-        source.push_str(&format!("    pub {identifier}: {ty},\n"));
-    }
-    source.push_str("}\n");
+    let fields = schema
+        .fields
+        .values()
+        .map(|field| {
+            let identifier = rust_identifier(&field.json_name);
+            let rename = if identifier == field.json_name {
+                String::new()
+            } else {
+                format!("    #[serde(rename = {:?})]\n", field.json_name)
+            };
+            let ty = rust_type(&field.kind);
+            let ty = if field.required {
+                ty.to_owned()
+            } else {
+                format!("Option<{ty}>")
+            };
+            format!("{rename}    pub {identifier}: {ty},\n")
+        })
+        .collect::<String>();
     GeneratedCode {
         language: "rust",
-        source,
+        source: format!(
+            "#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]\npub struct {name} {{\n{fields}}}\n"
+        ),
     }
 }
 
 pub fn generate_typescript(schema: &CanonicalSchema) -> GeneratedCode {
     let name = pascal_case(&schema.title);
-    let mut source = format!("export interface {name} {{\n");
-    for field in schema.fields.values() {
-        let key = serde_json::to_string(&field.json_name).expect("JSON string serialization");
-        let optional = if field.required { "" } else { "?" };
-        source.push_str(&format!(
-            "  {key}{optional}: {};\n",
-            typescript_type(&field.kind)
-        ));
-    }
-    source.push_str("}\n");
+    let fields = schema
+        .fields
+        .values()
+        .map(|field| {
+            let key = serde_json::to_string(&field.json_name).expect("JSON string serialization");
+            let optional = if field.required { "" } else { "?" };
+            format!("  {key}{optional}: {};\n", typescript_type(&field.kind))
+        })
+        .collect::<String>();
     GeneratedCode {
         language: "typescript",
-        source,
+        source: format!("export interface {name} {{\n{fields}}}\n"),
     }
 }
 
 pub fn generate_dart(schema: &CanonicalSchema) -> GeneratedCode {
     let name = pascal_case(&schema.title);
-    let mut source = format!("final class {name} {{\n");
-    for field in schema.fields.values() {
-        let nullable = if field.required { "" } else { "?" };
-        source.push_str(&format!(
-            "  final {}{nullable} {};\n",
-            dart_type(&field.kind),
-            dart_identifier(&field.json_name)
-        ));
-    }
-    source.push_str(&format!("\n  const {name}({{\n"));
-    for field in schema.fields.values() {
-        let required = if field.required { "required " } else { "" };
-        source.push_str(&format!(
-            "    {required}this.{},\n",
-            dart_identifier(&field.json_name)
-        ));
-    }
-    source.push_str("  });\n}\n");
+    let declarations = schema
+        .fields
+        .values()
+        .map(|field| {
+            let nullable = if field.required { "" } else { "?" };
+            format!(
+                "  final {}{nullable} {};\n",
+                dart_type(&field.kind),
+                dart_identifier(&field.json_name)
+            )
+        })
+        .collect::<String>();
+    let parameters = schema
+        .fields
+        .values()
+        .map(|field| {
+            let required = if field.required { "required " } else { "" };
+            format!(
+                "    {required}this.{},\n",
+                dart_identifier(&field.json_name)
+            )
+        })
+        .collect::<String>();
     GeneratedCode {
         language: "dart",
-        source,
+        source: format!(
+            "final class {name} {{\n{declarations}\n  const {name}({{\n{parameters}  }});\n}}\n"
+        ),
     }
 }
 
@@ -119,22 +129,23 @@ fn pascal_case(value: &str) -> String {
 }
 
 fn safe_identifier(value: &str) -> String {
-    let mut output = String::new();
-    for (index, character) in value.chars().enumerate() {
-        let safe = if character.is_ascii_alphanumeric() || character == '_' {
-            character
-        } else {
-            '_'
-        };
-        if index == 0 && safe.is_ascii_digit() {
-            output.push('_');
-        }
-        output.push(safe);
-    }
-    if output.is_empty() {
+    let sanitized = value
+        .chars()
+        .enumerate()
+        .flat_map(|(index, character)| {
+            let safe = if character.is_ascii_alphanumeric() || character == '_' {
+                character
+            } else {
+                '_'
+            };
+            let leading_underscore = (index == 0 && safe.is_ascii_digit()).then_some('_');
+            leading_underscore.into_iter().chain(std::iter::once(safe))
+        })
+        .collect::<String>();
+    if sanitized.is_empty() {
         "field".to_owned()
     } else {
-        output
+        sanitized
     }
 }
 
@@ -182,5 +193,32 @@ mod tests {
         assert!(generate_dart(&schema)
             .source
             .contains("final String typeValue"));
+    }
+
+    #[test]
+    fn generated_sources_keep_their_exact_layout() {
+        let schema = CanonicalSchema::from_json(
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Transfer Job","type":"object","required":["type"],"properties":{"type":{"type":"string"},"sizeBytes":{"type":"integer"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            generate_rust(&schema).source,
+            "#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]\npub struct TransferJob {\n    pub sizeBytes: Option<i64>,\n    #[serde(rename = \"type\")]\n    pub r#type: String,\n}\n"
+        );
+        assert_eq!(
+            generate_typescript(&schema).source,
+            "export interface TransferJob {\n  \"sizeBytes\"?: number;\n  \"type\": string;\n}\n"
+        );
+        assert_eq!(
+            generate_dart(&schema).source,
+            "final class TransferJob {\n  final int? sizeBytes;\n  final String typeValue;\n\n  const TransferJob({\n    this.sizeBytes,\n    required this.typeValue,\n  });\n}\n"
+        );
+    }
+
+    #[test]
+    fn identifiers_are_sanitized_and_never_start_with_a_digit() {
+        assert_eq!(safe_identifier("2fa-token"), "_2fa_token");
+        assert_eq!(safe_identifier("plain_name"), "plain_name");
+        assert_eq!(safe_identifier(""), "field");
     }
 }
