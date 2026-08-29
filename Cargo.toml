@@ -7,6 +7,11 @@ license = "MIT"
 description = "JSON Schema driven code, SQL, and ORM foundation for File Tunnel"
 repository = "https://github.com/file-tunnel/ftnl-lib-core"
 
+[features]
+default = ["read-only"]
+read-only = []
+read-write = ["read-only"]
+
 [dependencies]
 jsonschema = { version = "0.49.2", default-features = false }
 serde = { version = "1", features = ["derive"] }
