@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/file-tunnel/ftnl-lib-core/validation/contract.v1.json",
+  "contractVersion": "ores.validation.v1",
+  "owner": "file-tunnel/ftnl-lib-core",
+  "publicAuthority": "https://github.com/file-tunnel/ftnl-interfaces/tree/main/validation",
+  "routeAuthority": "https://github.com/ORESoftware/api-docs",
+  "visibility": {
+    "public": ["request-meta", "page-query", "problem-details"],
+    "server": ["trusted-actor", "server-request-context", "internal-command"]
+  },
+  "languageBindings": {
+    "typescript": {"library": "zod", "publicPackage": "@file-tunnel/ftnl-validation", "serverPackage": "@file-tunnel/ftnl-validation-server"},
+    "rust": {"library": "garde", "publicPackage": "ftnl-validation", "serverPackage": "ftnl-validation-server"},
+    "golang": {"library": "go-playground/validator/v10", "publicPackage": "github.com/file-tunnel/ftnl-lib-core/validation/golang", "serverPackage": "github.com/file-tunnel/ftnl-lib-core/validation/golang-server"},
+    "gleam": {"library": "gleam/dynamic/decode", "publicPackage": "ftnl_validation", "serverPackage": "ftnl_validation_server"}
+  },
+  "rules": {
+    "clientExportsPublicOnly": true,
+    "serverMayImportPublic": true,
+    "serverDefinitionsNeverEmittedToClients": true,
+    "routeBindingsUseApiDocsOperationId": true,
+    "unknownFieldsRejectedWhereRuntimeSupportsIt": true
+  }
+}
