@@ -1,0 +1,4 @@
+package servervalidation
+import("strings";"testing";public "github.com/file-tunnel/ftnl-lib-core/validation/golang")
+func validContext()ServerRequestContext{return ServerRequestContext{Public:public.RequestMeta{RequestID:"req-1",TraceID:"trace-1"},Actor:TrustedActor{UserID:"user-1",Roles:[]string{"tunnel-writer"}},SourceIP:"127.0.0.1"}}
+func TestServerBoundaries(t *testing.T){if err:=Validate(validContext());err!=nil{t.Fatal(err)};if err:=Validate(InternalCommand{OperationID:"tunnels.create",Context:validContext()});err!=nil{t.Fatal(err)};for _,a:=range []TrustedActor{{UserID:""},{UserID:strings.Repeat("u",129)},{UserID:"user-1",Roles:[]string{""}},{UserID:"user-1",Roles:make([]string,65)}}{if Validate(a)==nil{t.Fatalf("expected invalid actor: %#v",a)}};c:=validContext();c.SourceIP="not-an-ip";if Validate(c)==nil{t.Fatal("expected invalid IP")};if Validate(InternalCommand{OperationID:"",Context:validContext()})==nil{t.Fatal("expected invalid operation")}}
