@@ -10,3 +10,8 @@
 tmp/
 *.log
 .DS_Store
+
+# Repository-local temporary data and authorized Git worktrees
+temp
+tmp/worktrees
+temp/worktrees
