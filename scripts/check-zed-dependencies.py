@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate that the DPM package edge corresponds to the bounded CLI adapter."""
+"""Validate bounded DPM integration and the canonical OTel Zed dependency."""
 
 from pathlib import Path
 import tomllib
@@ -7,11 +7,17 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 manifest = tomllib.loads((ROOT / ".zpkg.toml").read_text(encoding="utf-8"))
 dependencies = manifest.get("dependencies", {})
-expected = "declarative-migrations/declarative-postgres-migrate"
+expected_dependencies = {
+    "declarative-migrations/declarative-postgres-migrate": "^0.3.2",
+    "oresoftware/next-loggers": "^0.1.0",
+}
 
 errors: list[str] = []
-if dependencies != {expected: "^0.3.2"}:
-    errors.append(f"Zed dependencies must contain only {expected} at ^0.3.2")
+if dependencies != expected_dependencies:
+    errors.append(
+        "Zed dependencies must match the bounded DPM and canonical OTel dependency set: "
+        f"{expected_dependencies!r}"
+    )
 
 adapter = (ROOT / "src/dpm.rs").read_text(encoding="utf-8")
 for token in ["Command::new", "DpmOperation::Diff", "DpmOperation::Verify", "DpmOperation::Bootstrap"]:
@@ -26,4 +32,4 @@ if errors:
         print(f" - {error}")
     raise SystemExit(1)
 
-print("validated bounded DPM CLI integration")
+print("validated bounded DPM CLI integration and canonical OTel Zed dependency")
