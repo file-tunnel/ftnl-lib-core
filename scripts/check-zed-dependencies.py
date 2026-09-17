@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate bounded DPM integration and the canonical OTel Zed dependency."""
+"""Validate bounded DPM integration and canonical OTel/lifecycle Zed dependencies."""
 
 from pathlib import Path
 import tomllib
@@ -11,18 +11,24 @@ ORES_OTEL_MANIFEST = (
     "https://raw.githubusercontent.com/ores-otel/ores.otel.log/"
     f"{ORES_OTEL_COMMIT}/.zpkg.toml"
 )
+NEXT_LOGGERS_COMMIT = "e0eaa55fd964827bb3a9ef580f076cce23000cdb"
+NEXT_LOGGERS_MANIFEST = (
+    "https://raw.githubusercontent.com/ORESoftware/next-loggers.ts/"
+    f"{NEXT_LOGGERS_COMMIT}/.zpkg.toml"
+)
 
 manifest = tomllib.loads((ROOT / ".zpkg.toml").read_text(encoding="utf-8"))
 dependencies = manifest.get("dependencies", {})
 expected_dependencies = {
     "declarative-migrations/declarative-postgres-migrate": "^0.3.2",
     "oresoftware/next-loggers": "^0.1.0",
+    "oresoftware/next-loggers-rust": "^0.1.0",
 }
 
 errors: list[str] = []
 if dependencies != expected_dependencies:
     errors.append(
-        "Zed dependencies must match the bounded DPM and canonical OTel dependency set: "
+        "Zed dependencies must match the bounded DPM and canonical OTel/lifecycle dependency set: "
         f"{expected_dependencies!r}"
     )
 
@@ -52,6 +58,31 @@ else:
             f"{actual_upstream!r}"
         )
 
+try:
+    with urllib.request.urlopen(NEXT_LOGGERS_MANIFEST, timeout=15) as response:
+        lifecycle_manifest = tomllib.loads(response.read().decode("utf-8"))
+except Exception as exc:
+    errors.append(
+        f"failed to read immutable next-loggers lifecycle manifest {NEXT_LOGGERS_COMMIT}: {exc}"
+    )
+else:
+    rust_target = lifecycle_manifest.get("targets", {}).get("rust", {})
+    expected_rust_target = {
+        "dir": "sdk/rust",
+        "name": "next-loggers-rust",
+        "adapter": "rust",
+    }
+    actual_rust_target = {
+        "dir": rust_target.get("dir"),
+        "name": rust_target.get("name"),
+        "adapter": rust_target.get("adapter"),
+    }
+    if actual_rust_target != expected_rust_target:
+        errors.append(
+            "immutable next-loggers manifest does not expose the canonical Rust lifecycle target: "
+            f"{actual_rust_target!r}"
+        )
+
 adapter = (ROOT / "src/dpm.rs").read_text(encoding="utf-8")
 for token in ["Command::new", "DpmOperation::Diff", "DpmOperation::Verify", "DpmOperation::Bootstrap"]:
     if token not in adapter:
@@ -66,6 +97,6 @@ if errors:
     raise SystemExit(1)
 
 print(
-    "validated bounded DPM CLI integration and canonical OTel Zed dependency "
-    f"at ores-otel/ores.otel.log@{ORES_OTEL_COMMIT}"
+    "validated bounded DPM CLI integration, canonical OTel dependency, and shared Rust lifecycle "
+    f"target at ORESoftware/next-loggers.ts@{NEXT_LOGGERS_COMMIT}"
 )
