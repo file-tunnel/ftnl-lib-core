@@ -51,6 +51,8 @@ pub enum SchemaError {
     UnsupportedProperty(String),
     #[error("identifier {0:?} is not a safe SQL identifier")]
     InvalidIdentifier(String),
+    #[error("multiple JSON properties map to the SQL column {0:?}")]
+    DuplicateColumn(String),
     #[error("primary key field {0:?} must be required")]
     OptionalPrimaryKey(String),
     #[error("schema instance is invalid: {0}")]
@@ -88,6 +90,7 @@ impl CanonicalSchema {
             .ok_or(SchemaError::InvalidProperties)?;
         let required = parse_required(object.get("required"), properties)?;
         let mut fields = BTreeMap::new();
+        let mut column_names = BTreeSet::new();
         for (json_name, definition) in properties {
             let definition = definition
                 .as_object()
@@ -98,6 +101,9 @@ impl CanonicalSchema {
                 .map(str::to_owned)
                 .unwrap_or_else(|| to_snake_case(json_name));
             validate_identifier(&column_name)?;
+            if !column_names.insert(column_name.clone()) {
+                return Err(SchemaError::DuplicateColumn(column_name));
+            }
             let kind = field_kind(definition)
                 .ok_or_else(|| SchemaError::UnsupportedProperty(json_name.clone()))?;
             let is_required = required.contains(json_name);
@@ -246,6 +252,23 @@ mod tests {
             ["id", "metadata", "sizeBytes"]
         );
         assert_eq!(schema.fields["sizeBytes"].column_name, "size_bytes");
+    }
+
+    #[test]
+    fn rejects_colliding_normalized_and_explicit_columns() {
+        let mut normalized = schema();
+        normalized["properties"]["size_bytes"] = json!({"type": "integer"});
+        assert!(matches!(
+            CanonicalSchema::from_value(normalized),
+            Err(SchemaError::DuplicateColumn(name)) if name == "size_bytes"
+        ));
+
+        let mut explicit = schema();
+        explicit["properties"]["metadata"]["x-ftnl-column"] = json!("size_bytes");
+        assert!(matches!(
+            CanonicalSchema::from_value(explicit),
+            Err(SchemaError::DuplicateColumn(name)) if name == "size_bytes"
+        ));
     }
 
     #[test]
